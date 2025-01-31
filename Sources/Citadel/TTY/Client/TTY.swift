@@ -51,7 +51,7 @@ public enum ExecCommandOutput {
 }
 
 /// An async sequence that provides TTY output data
-@available(macOS 15.0, *)
+@available(macOS 11.0, *)
 public struct TTYOutput: AsyncSequence {
     internal let sequence: AsyncThrowingStream<ExecCommandOutput, Error>
     public typealias Element = ExecCommandOutput
@@ -345,7 +345,7 @@ extension SSHClient {
     ///   - environment: Array of environment variables to set for the PTY session
     ///   - perform: Closure that receives TTY input/output streams and performs terminal operations
     /// - Throws: Any errors that occur during PTY setup or operation
-    @available(macOS 15.0, *)
+    @available(macOS 11.0, *)
     public func withPTY(
         _ request: SSHChannelRequestEvent.PseudoTerminalRequest,
         environment: [SSHChannelRequestEvent.EnvironmentRequest] = [],
@@ -395,7 +395,7 @@ extension SSHClient {
     ///     }
     /// }
     /// ```
-    @available(macOS 15.0, *)
+    @available(macOS 11.0, *)
     public func withTTY(
         environment: [SSHChannelRequestEvent.EnvironmentRequest] = [],
         perform: (_ inbound: TTYOutput, _ outbound: TTYStdinWriter) async throws -> Void
