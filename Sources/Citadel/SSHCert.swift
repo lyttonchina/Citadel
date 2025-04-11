@@ -89,23 +89,51 @@ extension Insecure.RSA.PrivateKey: OpenSSHPrivateKey {
     static var privateKeyPrefix: String { "ssh-rsa" }
     static var keyType: OpenSSH.KeyType { .sshRSA }
     
-    /// Creates a new Curve25519 private key from an OpenSSH private key string.
+    /// Creates a new RSA private key from a string representation.
+    /// Automatically detects and handles both OpenSSH and PEM formats.
     /// - Parameters:
-    ///  - key: The OpenSSH private key string.
-    /// - decryptionKey: The key to decrypt the private key with, if any.
-    public convenience init(sshRsa data: Data, decryptionKey: Data? = nil) throws {
-        if let string = String(data: data, encoding: .utf8) {
-            try self.init(sshRsa: string, decryptionKey: decryptionKey)
+    ///  - key: The private key string (OpenSSH or PEM format).
+    /// - decryptionKey: The key to decrypt the private key with, if using OpenSSH format.
+    /// - passphrase: The passphrase to decrypt the private key with, if using PEM format.
+    public convenience init(string key: String, decryptionKey: Data? = nil, passphrase: String? = nil) throws {
+        // Check if it's a PEM formatted RSA private key
+        if key.contains("-----BEGIN RSA PRIVATE KEY-----") {
+            try self.init(fromPEM: key, passphrase: passphrase)
+        } else if key.contains("-----BEGIN OPENSSH PRIVATE KEY-----") {
+            try self.init(fromOpenSSH: key, decryptionKey: decryptionKey)
         } else {
-            throw InvalidOpenSSHKey.invalidUTF8String
+            throw RSAError.invalidPem
         }
     }
     
-    /// Creates a new Curve25519 private key from an OpenSSH private key string.
-    /// - Parameters:
-    ///  - key: The OpenSSH private key string.
-    /// - decryptionKey: The key to decrypt the private key with, if any.
-    public convenience init(sshRsa key: String, decryptionKey: Data? = nil) throws {
+    // 内部方法，从PEM格式初始化
+    private convenience init(fromPEM pemKey: String, passphrase: String? = nil) throws {
+        // Read the RSA key from PEM
+        let rsaKey = try PEM.readPrivateKey(from: pemKey, passphrase: passphrase)
+        defer {
+            CCryptoBoringSSL_RSA_free(rsaKey)
+        }
+        
+        // Extract components
+        var n: UnsafePointer<BIGNUM>?
+        var e: UnsafePointer<BIGNUM>?
+        var d: UnsafePointer<BIGNUM>?
+        CCryptoBoringSSL_RSA_get0_key(rsaKey, &n, &e, &d)
+        
+        guard let modulus = n, let publicExponent = e, let privateExponent = d else {
+            throw RSAError.pkcs1Error
+        }
+        
+        // Copy values to avoid memory issues
+        let modulusCopy = CCryptoBoringSSL_BN_dup(modulus)!
+        let publicExponentCopy = CCryptoBoringSSL_BN_dup(publicExponent)!
+        let privateExponentCopy = CCryptoBoringSSL_BN_dup(privateExponent)!
+        
+        self.init(privateExponent: privateExponentCopy, publicExponent: publicExponentCopy, modulus: modulusCopy)
+    }
+    
+    // 内部方法，从OpenSSH格式初始化
+    private convenience init(fromOpenSSH key: String, decryptionKey: Data? = nil) throws {
         let privateKey = try OpenSSH.PrivateKey<Insecure.RSA.PrivateKey>.init(string: key, decryptionKey: decryptionKey).privateKey
         let publicKey = privateKey.publicKey as! Insecure.RSA.PublicKey
         
@@ -119,5 +147,25 @@ extension Insecure.RSA.PrivateKey: OpenSSHPrivateKey {
         CCryptoBoringSSL_BN_copy(privateExponent, privateKey.privateExponent)
         
         self.init(privateExponent: privateExponent, publicExponent: publicExponent, modulus: modulus)
+    }
+    
+    /// 保持兼容原有API的初始化方法
+    public convenience init(sshRsa data: Data, decryptionKey: Data? = nil) throws {
+        if let string = String(data: data, encoding: .utf8) {
+            try self.init(string: string, decryptionKey: decryptionKey)
+        } else {
+            throw InvalidOpenSSHKey.invalidUTF8String
+        }
+    }
+    
+    /// 保持兼容原有API的初始化方法，内部调用统一处理方法
+    public convenience init(sshRsa key: String, decryptionKey: Data? = nil) throws {
+        try self.init(string: key, decryptionKey: decryptionKey)
+    }
+    
+    /// 为了完整性保留的内部方法，但推荐使用统一的init(string:)方法
+    @available(*, deprecated, message: "Use init(string:passphrase:) instead")
+    public convenience init(pemRsa pemKey: String, passphrase: String? = nil) throws {
+        try self.init(string: pemKey, passphrase: passphrase)
     }
 }

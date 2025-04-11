@@ -2,6 +2,7 @@ public enum SSHClientError: Error {
     case unsupportedPasswordAuthentication, unsupportedPrivateKeyAuthentication, unsupportedHostBasedAuthentication
     case channelCreationFailed
     case allAuthenticationOptionsFailed
+    case invalidPrivateKeyType //新增错误信息
 }
 
 public enum SSHChannelError: Error {
