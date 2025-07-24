@@ -20,6 +20,24 @@
         }
       },
       {
+        "package": "CSSH",
+        "repositoryURL": "https://github.com/migueldeicaza/Libssh2Prebuild",
+        "state": {
+          "branch": "master",
+          "revision": "2b9a34880aa7906a76872ac03077ea5aa313c72b",
+          "version": null
+        }
+      },
+      {
+        "package": "Shake",
+        "repositoryURL": "https://github.com/shakebugs/shake-ios",
+        "state": {
+          "branch": "master",
+          "revision": "0dde2b46e64665102a3743cc13b70c721fdaf040",
+          "version": null
+        }
+      },
+      {
         "package": "swift-atomics",
         "repositoryURL": "https://github.com/apple/swift-atomics.git",
         "state": {
@@ -80,6 +98,15 @@
           "branch": null,
           "revision": "025bcb1165deab2e20d4eaba79967ce73013f496",
           "version": "1.2.1"
+        }
+      },
+      {
+        "package": "swiftui-introspect",
+        "repositoryURL": "https://github.com/siteline/SwiftUI-Introspect.git",
+        "state": {
+          "branch": null,
+          "revision": "121c146fe591b1320238d054ae35c81ffa45f45a",
+          "version": "0.12.0"
         }
       }
     ]
