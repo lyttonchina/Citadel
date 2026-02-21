@@ -51,73 +51,33 @@ public enum ExecCommandOutput {
     case stderr(ByteBuffer)
 }
 
-/// Protocol for monitoring TTY command execution
-@available(macOS 12.0, iOS 12.0, *)
-public protocol TTYMonitor: Sendable {
-    /// Called when data is written to the TTY input
-    /// - Parameters:
-    ///   - data: The data that was written
-    ///   - timestamp: When the data was written
-    func onInput(data: ByteBuffer, timestamp: Date)
-
-    /// Called when data is received from the TTY output
-    /// - Parameters:
-    ///   - output: The output data (stdout or stderr)
-    ///   - timestamp: When the data was received
-    func onOutput(_ output: ExecCommandOutput, timestamp: Date)
-}
-
 /// An async sequence that provides TTY output data
 @available(macOS 12.0, iOS 12.0, *)
 public struct TTYOutput: AsyncSequence {
     internal let sequence: AsyncThrowingStream<ExecCommandOutput, Error>
-    internal var monitor: (any TTYMonitor)?
     public typealias Element = ExecCommandOutput
 
     public struct AsyncIterator: AsyncIteratorProtocol {
         public typealias Element = ExecCommandOutput
         var iterator: AsyncThrowingStream<ExecCommandOutput, Error>.AsyncIterator
-        var monitor: (any TTYMonitor)?
 
         public mutating func next() async throws -> ExecCommandOutput? {
-            let result = try await iterator.next()
-            if let output = result {
-                monitor?.onOutput(output, timestamp: Date())
-            }
-            return result
+            try await iterator.next()
         }
     }
 
     public func makeAsyncIterator() -> AsyncIterator {
-        AsyncIterator(iterator: sequence.makeAsyncIterator(), monitor: monitor)
+        AsyncIterator(iterator: sequence.makeAsyncIterator())
     }
 }
 
 /// Allows writing data to a TTY's standard input and controlling terminal properties
 public struct TTYStdinWriter {
     internal let channel: Channel
-    @available(macOS 12.0, iOS 12.0, *)
-    internal var monitor: (any TTYMonitor)?
-
-    @available(macOS 12.0, iOS 12.0, *)
-    internal init(channel: Channel, monitor: (any TTYMonitor)? = nil) {
-        self.channel = channel
-        self.monitor = monitor
-    }
-
-    internal init(channel: Channel) {
-        self.channel = channel
-        if #available(macOS 12.0, iOS 12.0, *) {
-            self.monitor = nil
-        }
-    }
 
     /// Write raw bytes to the TTY's standard input
     /// - Parameter buffer: The bytes to write
     public func write(_ buffer: ByteBuffer) async throws {
-        if #available(macOS 12.0, iOS 12.0, *) {
-            monitor?.onInput(data: buffer, timestamp: Date())
-        }
         try await channel.writeAndFlush(SSHChannelData(type: .channel, data: .byteBuffer(buffer)))
     }
 
@@ -390,7 +350,6 @@ extension SSHClient {
     public func withPTY(
         _ request: SSHChannelRequestEvent.PseudoTerminalRequest,
         environment: [SSHChannelRequestEvent.EnvironmentRequest] = [],
-        monitor: (any TTYMonitor)? = nil,
         perform: (_ inbound: TTYOutput, _ outbound: TTYStdinWriter) async throws -> Void
     ) async throws {
         let (channel, output) = try await _executeCommandStream(
@@ -403,10 +362,8 @@ extension SSHClient {
         }
 
         do {
-            var inbound = TTYOutput(sequence: output)
-            inbound.monitor = monitor
-            let outbound = TTYStdinWriter(channel: channel, monitor: monitor)
-            try await perform(inbound, outbound)
+            let inbound = TTYOutput(sequence: output)
+            try await perform(inbound, TTYStdinWriter(channel: channel))
             try await close()
         } catch {
             try await close()
@@ -418,7 +375,6 @@ extension SSHClient {
     /// 
     /// - Parameters:
     ///   - environment: Array of environment variables to set for the TTY session
-    ///   - monitor: Optional monitor for tracking command execution
     ///   - perform: Closure that receives TTY input/output streams and performs terminal operations
     /// - Throws: Any errors that occur during TTY setup or operation
     /// 
@@ -443,7 +399,6 @@ extension SSHClient {
     @available(macOS 12.0, iOS 12.0, *)
     public func withTTY(
         environment: [SSHChannelRequestEvent.EnvironmentRequest] = [],
-        monitor: (any TTYMonitor)? = nil,
         perform: (_ inbound: TTYOutput, _ outbound: TTYStdinWriter) async throws -> Void
     ) async throws {
         let (channel, output) = try await _executeCommandStream(
@@ -456,10 +411,8 @@ extension SSHClient {
         }
 
         do {
-            var inbound = TTYOutput(sequence: output)
-            inbound.monitor = monitor
-            let outbound = TTYStdinWriter(channel: channel, monitor: monitor)
-            try await perform(inbound, outbound)
+            let inbound = TTYOutput(sequence: output)
+            try await perform(inbound, TTYStdinWriter(channel: channel))
             try await close()
         } catch {
             try await close()
