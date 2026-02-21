@@ -1,0 +1,32 @@
+{
+    // 关闭自动格式化
+    "editor.formatOnSave": false,
+    "editor.formatOnType": false,
+    "editor.formatOnPaste": false,
+    "editor.formatOnSaveMode": "off",
+    
+    // 关闭默认格式化器
+    "editor.defaultFormatter": null,
+    
+    // 关闭 Prettier
+    "prettier.enable": false,
+    "[javascript]": {
+        "editor.defaultFormatter": null,
+        "editor.formatOnSave": false
+    },
+    "[typescript]": {
+        "editor.defaultFormatter": null,
+        "editor.formatOnSave": false
+    },
+    "[json]": {
+        "editor.defaultFormatter": null,
+        "editor.formatOnSave": false
+    },
+    "[jsonc]": {
+        "editor.defaultFormatter": null,
+        "editor.formatOnSave": false
+    },
+    "[swift]": {
+        "editor.formatOnSave": false
+    }
+}
